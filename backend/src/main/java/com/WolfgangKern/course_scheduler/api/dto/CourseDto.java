@@ -7,7 +7,7 @@ import java.util.List;
  */
 public class CourseDto {
     
-    private String courseId;
+    private String code;
     private List<SectionDto> sections;
 
     CourseDto() {}
@@ -16,12 +16,12 @@ public class CourseDto {
      * Getters and Setters, no special conditions needed 
      */
 
-    public String getCourseId() {
-        return courseId;
+    public String getCode() {
+        return code;
     }
 
-    public void setCourseId(String courseId) {
-        this.courseId = courseId;
+    public void setCode(String courseId) {
+        this.code = courseId;
     }
 
     public List<SectionDto> getSections() {
