@@ -22,7 +22,7 @@ public class Section {
     public String getCourseCode() {
         return courseCode;
     }
-    public String getSectionId() {
+    public String getId() {
         return sectionId;
     }
     public List<Meeting> getMeetings() {
