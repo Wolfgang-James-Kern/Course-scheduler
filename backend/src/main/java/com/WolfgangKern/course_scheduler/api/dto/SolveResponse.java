@@ -8,13 +8,13 @@ import java.util.List;
  */
 public class SolveResponse {
 
-    private List<Object> schedules; // List of generated schedules with a placeholder type, can be replaced with a specific Schedule Object when defined
+    private List<ScheduleDto> schedules; // List of generated schedules with a placeholder type, can be replaced with a specific Schedule Object when defined
 
     public SolveResponse() {
         schedules = Collections.emptyList(); // Initialize with an empty list to avoid null issues
     }
 
-    public SolveResponse(List<Object> schedules) {
+    public SolveResponse(List<ScheduleDto> schedules) {
         this.schedules = schedules;
     }
 
@@ -22,11 +22,11 @@ public class SolveResponse {
      * Getters and Setters, no special conditions needed 
      */
     
-    public List<Object> getSchedules() {
+    public List<ScheduleDto> getSchedules() {
         return schedules;
     }
 
-    public void setSchedules(List<Object> schedules) {
+    public void setSchedules(List<ScheduleDto> schedules) {
         this.schedules = schedules;
     }
 }

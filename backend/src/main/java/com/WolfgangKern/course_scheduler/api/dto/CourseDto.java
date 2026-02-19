@@ -10,7 +10,12 @@ public class CourseDto {
     private String code;
     private List<SectionDto> sections;
 
-    CourseDto() {}
+    public CourseDto() {}
+
+    public CourseDto(String code, List<SectionDto> sections) {
+        this.code = code;
+        this.sections = sections;
+    }
 
     /*
      * Getters and Setters, no special conditions needed 

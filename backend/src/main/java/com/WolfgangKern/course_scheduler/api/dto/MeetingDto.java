@@ -6,7 +6,13 @@ package com.WolfgangKern.course_scheduler.api.dto;
 public class MeetingDto {
     private String day, startTime, endTime;
 
-    MeetingDto() {}
+    public MeetingDto() {}
+
+    public MeetingDto(String day, String startTime, String endTime) {
+        this.day = day;
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
 
     /*
      * Getters and Setters, no special conditions needed
@@ -15,7 +21,7 @@ public class MeetingDto {
     public String getDay() {
         return day;
     }
-
+    
     public void setDay(String day) {
         this.day = day;
     }

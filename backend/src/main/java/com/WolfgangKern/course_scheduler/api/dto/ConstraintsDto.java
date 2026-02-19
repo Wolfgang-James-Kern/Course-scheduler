@@ -10,7 +10,14 @@ public class ConstraintsDto {
     private List<String> daysOff;
     private Integer maxGapMinutes;
 
-    ConstraintsDto() {}
+    public ConstraintsDto() {}
+
+    public ConstraintsDto(String earliestStart, String latestEnd, List<String> daysOff, Integer maxGapMinutes) {
+        this.earliestStart = earliestStart;
+        this.latestEnd = latestEnd;
+        this.daysOff = daysOff;
+        this.maxGapMinutes = maxGapMinutes;
+    }
 
     /*
      * Getters and Setters, no special conditions needed
