@@ -28,7 +28,7 @@ public class ScheduleSolverTest {
 
          List<ScheduleSolution> solutions = solver.solve(List.of(c1, c2), new Constraints(null, null, null, null), 5);
 
-         ScheduleStats stats = solutions.get(0).getScheduleStats();
+         ScheduleStats stats = solutions.get(0).getStats();
 
          assertTrue(stats.getEarliestStart().equals(LocalTime.of(9, 0)));
          assertTrue(stats.getLatestEnd().equals(LocalTime.of(19, 0)));
