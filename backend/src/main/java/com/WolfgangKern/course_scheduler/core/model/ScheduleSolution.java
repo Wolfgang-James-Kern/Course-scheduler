@@ -7,7 +7,7 @@ import java.util.List;
  */
 public class ScheduleSolution {
     private final List<Section> selectedSections;
-    private ScheduleStats stats;
+    private final ScheduleStats stats;
     private final int score; //lower is better
 
     public ScheduleSolution(List<Section> selectedSections, ScheduleStats stats, int score) {
