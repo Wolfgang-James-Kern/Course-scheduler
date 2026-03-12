@@ -3,51 +3,7 @@ import CourseBuilder from "./components/CourseBuilder";
 import type {CourseIn, SolveRequest, SolveResponse} from "./types";
 import WeekGrid from "./components/WeekGrid";
 import { solveSchedules } from "./api";
-
-function sampleRequest(): SolveRequest {
-    return {
-      "topN": 5,
-      "constraints": {
-          "earliestStart": "08:00",
-          "latestEnd": "18:00",
-          "maxGapMinutes": 30
-      },
-      "courses": [
-          {
-              "code": "CS101",
-              "sections": [
-                  {
-                      "id": "001",
-                      "meetings": [
-                          {"day": "MONDAY", "startTime": "09:00", "endTime": "10:30"},
-                          {"day": "WEDNESDAY", "startTime": "09:00", "endTime": "10:30"}
-                      ]
-                  },
-                  {
-                      "id": "002",
-                      "meetings": [
-                          {"day": "TUESDAY", "startTime": "11:00", "endTime": "12:15"},
-                          {"day": "THURSDAY", "startTime": "11:00", "endTime": "12:15"}
-                      ]
-                  }
-              ]
-          },
-          {
-              "code": "MATH201",
-              "sections": [
-                  {
-                      "id": "001",
-                      "meetings": [
-                          {"day": "MONDAY", "startTime": "10:30", "endTime": "11:30"},
-                          {"day": "WEDNESDAY", "startTime": "10:30", "endTime": "11:30"}
-                      ]
-                  }
-              ]
-          }
-      ]
-    }
-  }
-
+import {PRESETS} from "./data/examples";
 
 function emptyDraft(): CourseIn {//see if i can make meetings empty too
     return {
@@ -98,7 +54,8 @@ export default function App() {
 
   const [error, setError] = useState<string>("");
   const [response, setResponse] = useState<SolveResponse | null>(null);
-  const [selected, setSelected] = useState<number>(0)
+  const [selected, setSelected] = useState<number>(0);
+  const [presetIndex, setPresetIndex] = useState<number | null>(null);
 
   const emptySchedule = {
     sections: [],
@@ -108,11 +65,12 @@ export default function App() {
 
   const schedules = response?.schedules ?? [];
 
-  function loadSample() {
-    setReq(sampleRequest());
+  function loadSample(index: number) {
+    setReq(PRESETS[index].request);
     setDraft(emptyDraft());
     setEditingIndex(null);
     setError("");
+    setPresetIndex(index);
   }
 
   function clearDraft() {
@@ -208,9 +166,30 @@ export default function App() {
               </label>
             </div>
 
-            <button onClick={loadSample}>
-              Load sample
-            </button>
+            <select
+              value={presetIndex === null ? "" : presetIndex}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "") {
+                  setPresetIndex(null);
+                  setReq(emptyRequest());
+                } else {
+                  const idx = Number(val);
+                  setPresetIndex(idx);
+                  loadSample(idx);
+                }
+              }}
+              style={{ marginRight: 10, padding: 10 }}
+            >
+              <option value="">
+                Presets
+              </option>
+              {PRESETS.map((p, i) => (
+                <option key={i} value={i}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
 
             <button onClick={runSolve}>
               Generate
