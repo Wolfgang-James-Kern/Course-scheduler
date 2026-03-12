@@ -1,6 +1,8 @@
 import { useState } from "react";
 import CourseBuilder from "./components/CourseBuilder";
-import type {CourseIn, SolveRequest} from "./types";
+import type {CourseIn, SolveRequest, SolveResponse} from "./types";
+import WeekGrid from "./components/WeekGrid";
+import { solveSchedules } from "./api";
 
 function sampleRequest(): SolveRequest {
     return {
@@ -17,8 +19,8 @@ function sampleRequest(): SolveRequest {
                   {
                       "id": "001",
                       "meetings": [
-                          {"day": "MONDAY", "startTime": "09:00", "endTime": "10:15"},
-                          {"day": "WEDNESDAY", "startTime": "09:00", "endTime": "10:15"}
+                          {"day": "MONDAY", "startTime": "09:00", "endTime": "10:30"},
+                          {"day": "WEDNESDAY", "startTime": "09:00", "endTime": "10:30"}
                       ]
                   },
                   {
@@ -36,8 +38,8 @@ function sampleRequest(): SolveRequest {
                   {
                       "id": "001",
                       "meetings": [
-                          {"day": "MONDAY", "startTime": "10:30", "endTime": "11:45"},
-                          {"day": "WEDNESDAY", "startTime": "10:30", "endTime": "11:45"}
+                          {"day": "MONDAY", "startTime": "10:30", "endTime": "11:30"},
+                          {"day": "WEDNESDAY", "startTime": "10:30", "endTime": "11:30"}
                       ]
                   }
               ]
@@ -95,6 +97,16 @@ export default function App() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const [error, setError] = useState<string>("");
+  const [response, setResponse] = useState<SolveResponse | null>(null);
+  const [selected, setSelected] = useState<number>(0)
+
+  const emptySchedule = {
+    sections: [],
+    stats: {earliestStart: "", latestEnd: "", totalGapMinutes: 0, daysWithClasses: 0},
+    score: 0
+  }
+
+  const schedules = response?.schedules ?? [];
 
   function loadSample() {
     setReq(sampleRequest());
@@ -149,6 +161,15 @@ export default function App() {
     if (editingIndex === index) clearDraft();
   }
 
+  async function runSolve() {
+    try{
+      const data = await solveSchedules(req);
+      setResponse(data)
+    }catch (e: any) {
+      setError(e?.message ?? "Unknown error");
+    }
+  }
+
   return (
     <div style = {{width: "100vw", height: "100vh", padding: 20}}>
       <h1 style={{margin: 0}}>Course Scheduler</h1>
@@ -157,9 +178,9 @@ export default function App() {
       </div>
 
       {/* Responsive */}
-      <div style = {{width: "100vw", height: "90%"}}>
+      <div style = {{width: "90%", display: "flex"}}>
         {/* Left Panel */}
-        <div style={{width: "25%", float: "left"}}>
+        <div style={{width: "25%", height: "100%"}}>
 
           {/* Constraints + Actions */}
           <div style = {{border: "1px solid black", borderRadius: 10, padding: 10}}>
@@ -191,7 +212,7 @@ export default function App() {
               Load sample
             </button>
 
-            <button>
+            <button onClick={runSolve}>
               Generate
             </button>
 
@@ -246,8 +267,45 @@ export default function App() {
 
         </div>
         {/* Right Panel */}
-        <div style={{width: "75%", float: "right"}}>
-          <h2>Course List</h2>
+        <div style={{width: "75%", border: "1px solid black", borderRadius: 10, padding: 10, marginLeft: 20}}>
+          
+          <div style={{display: "flex", justifyContent: "space-between"}}>
+            <div style={{fontWeight: 900}}>Results</div>
+            <div>{response ? `${response.schedules.length} schedule(s)`: "No results yet"}</div>
+          </div>
+
+          {/* schedule picker */}
+          <div style={{display: "flex"}}>
+            {schedules.length>0 ? schedules.map((s, i) => (
+              <button key={i} onClick={() => setSelected(i)}>
+                <div>#{i+1}</div>
+                <div>Score: {s.score}</div>
+                <div>
+                  {s.stats.earliestStart}-{s.stats.latestEnd} * gaps {s.stats.totalGapMinutes}m * days {s.stats.daysWithClasses}
+                </div>
+              </button>
+            )): [0, 1, 2].map((i) => (
+              <button key={i} disabled>
+                <div>#{i+1}</div>
+                <div>Generate to fill</div>
+              </button>
+            ))}
+          </div>
+
+          {/* grid preview */}
+          <div>
+            {schedules.length>0 && schedules[selected] ? (
+              <div>
+                <strong>Selected</strong> #{selected+1} * Score {schedules[selected].score}
+              </div>
+            ) : (
+              <div>
+                Generate schedules to populate the grid
+              </div>
+            )}
+            <WeekGrid schedule = {schedules.length>0 && schedules[selected] ? schedules[selected] : emptySchedule} />
+          </div>
+
         </div>
       </div>
     </div>
