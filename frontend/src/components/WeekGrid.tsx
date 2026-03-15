@@ -2,7 +2,7 @@ import type { ScheduleOut } from '../types';
 
 const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 
-function toMinutes(hhmm: string): number {
+export function toMinutes(hhmm: string): number {
     const [h, m] = hhmm.split(":").map(Number);
     return h*60+m;
 }
@@ -11,7 +11,7 @@ function clamp(n: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, n));
 }
 
-function format12h(totalMinutes: number): string {
+export function format12h(totalMinutes: number): string {
     let h = Math.floor(totalMinutes/60);
     const m = totalMinutes%60;
     const ampm = h < 12 ? "AM" : "PM";
@@ -27,7 +27,7 @@ export default function WeekGrid({ schedule }: { schedule: ScheduleOut }) {
 
     const rowMinutes = 30;
     const rows = (dayEnd - dayStart)/rowMinutes;
-    const rowHeight = 30;
+    const rowHeight = 40;  // CSS pixels per row
 
     const blocks = schedule.sections.flatMap((section) =>
         section.meetings.map((meeting) => ({
@@ -82,6 +82,7 @@ export default function WeekGrid({ schedule }: { schedule: ScheduleOut }) {
                             height: rows*rowHeight
                         }}>
                         {blocks.filter((block) => block.day === day).map((block, index) => {
+                            // Calculate absolute pixel positions for this meeting block
                             const startMin = clamp(toMinutes(block.start), dayStart, dayEnd);
                             const endMin = clamp(toMinutes(block.end), dayStart, dayEnd);
                             const top = Math.round(((startMin - dayStart) / rowMinutes) * rowHeight);
@@ -116,7 +117,7 @@ export default function WeekGrid({ schedule }: { schedule: ScheduleOut }) {
                                             {block.sectionId}
                                         </div>
                                         <div>
-                                            {block.start}-{block.end}
+                                            {format12h(toMinutes(block.start)).slice(0,5)} - {format12h(toMinutes(block.end)).slice(0,5)}
                                         </div>
                                     </div>
                                 </div>
