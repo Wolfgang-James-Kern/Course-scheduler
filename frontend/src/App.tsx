@@ -1,20 +1,20 @@
 import { useState } from "react";
 import CourseBuilder from "./components/CourseBuilder";
 import type {CourseIn, SolveRequest, SolveResponse} from "./types";
-import WeekGrid from "./components/WeekGrid";
+import WeekGrid, { format12h, toMinutes } from "./components/WeekGrid";
 import { solveSchedules } from "./api";
 import {PRESETS} from "./data/examples";
 
-function emptyDraft(): CourseIn {//see if i can make meetings empty too
+function emptyDraft(): CourseIn {
     return {
         code: "",
-        sections: [{id: "", meetings: [{day: "MONDAY", startTime: "08:30", endTime: "09:30"}]}]
+        sections: []
     };
 }
 
 function emptyRequest(): SolveRequest {
     return {
-        topN: 0,
+        topN: 1,
         constraints: { earliestStart: "", latestEnd: "", maxGapMinutes: 0 },
         courses: []
     };
@@ -29,9 +29,31 @@ function validateCourse(course: CourseIn): string | null {
     for(const meeting of section.meetings) {
       if(!isValidTime(meeting.startTime) || !isValidTime(meeting.endTime)) return `Bad time format in ${course.code} ${section.id}. Use HH:MM.`;
       if(meeting.endTime <= meeting.startTime) return `End time must be after start time in ${course.code} ${section.id}.`;
-      /** maybe validate that its in a 30 minute interval */
     }
   }
+  return null;
+}
+
+function validateRequest(req: SolveRequest): string | null {
+  if(req.courses.length <= 0) return "Must have at least one course"
+  if (!req.topN || req.topN < 1) return "Top N must be at least 1.";
+  const constraints = req.constraints;
+  if (constraints?.earliestStart) {
+    if (!isValidTime(constraints.earliestStart)) return "Earliest start must be a valid time (HH:MM).";
+    if (constraints.earliestStart < "08:00" || constraints.earliestStart > "23:00") return "Earliest start must be between 08:00 and 23:00.";
+  } else {
+    return "Please enter a valid value for Earliest"
+  }
+  if (constraints?.latestEnd) {
+    if (!isValidTime(constraints.latestEnd)) return "Latest end must be a valid time (HH:MM).";
+    if (constraints.latestEnd < "08:00" || constraints.latestEnd > "23:00") return "Latest end must be between 08:00 and 23:00.";
+  } else {
+    return "Please enter a valid value for Latest"
+  }
+  if (constraints?.earliestStart && constraints?.latestEnd) {
+    if (constraints.latestEnd <= constraints.earliestStart) return "Latest end must be after earliest start.";
+  }
+  if (constraints?.maxGapMinutes !== undefined && constraints.maxGapMinutes < 0) return "Max gap minutes must be non-negative.";
   return null;
 }
 
@@ -120,6 +142,12 @@ export default function App() {
   }
 
   async function runSolve() {
+    setError("");
+    const validate = validateRequest(req);
+    if (validate) {
+      setError(validate);
+      return;
+    }
     try{
       const data = await solveSchedules(req);
       setResponse(data)
@@ -129,14 +157,14 @@ export default function App() {
   }
 
   return (
-    <div style = {{width: "100vw", height: "100vh", padding: 20}}>
+    <div style = {{width: "100vw", height: "100vh", padding: 20, boxSizing: "border-box"}}>
       <h1 style={{margin: 0}}>Course Scheduler</h1>
       <div>
         Build courses in the staging area, add them to the list, then generate schedules
       </div>
 
       {/* Responsive */}
-      <div style = {{width: "90%", display: "flex"}}>
+      <div style = {{width: "100%", display: "flex"}}>
         {/* Left Panel */}
         <div style={{width: "25%", height: "100%"}}>
 
@@ -147,59 +175,82 @@ export default function App() {
             <div style = {{display: "grid", gridTemplateColumns: "1fr 1fr"}}>
               <label>
                 <div> Top N</div>
-                <input type="number" min={1} style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
+                <input type="number" 
+                  min={1} 
+                  value={req.topN}
+                  onChange={ (e) => setReq((p)=> ({ ...p, topN: Number(e.target.value)}))}
+                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
               </label>
 
               <label>
                 <div> Max Gap</div>
-                <input type="number" min={0} style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
+                <input type="number" 
+                  min={0} 
+                  value={req.constraints?.maxGapMinutes ?? ""}
+                  onChange={ (e) => setReq((p)=> ({ ...p, 
+                    constraints: {...(p.constraints ?? {}), maxGapMinutes: e.target.value === "" ? undefined : Number(e.target.value)}
+                  }))}
+                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
               </label>
 
               <label>
                 <div> Earliest</div>
-                <input type="time" min={"08:00"} max={"23:00"} style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
+                <input type="time" 
+                  min={"08:00"} max={"23:00"} 
+                  value={req.constraints?.earliestStart ?? ""}
+                  onChange={(e) => setReq((p) => ({ ...p,
+                    constraints: { ...(p.constraints ?? {}), earliestStart: e.target.value || undefined }
+                  }))}
+                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
               </label>
 
               <label>
                 <div> Latest</div>
-                <input type="time" min={"08:00"} max={"23:00"} style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
+                <input type="time" 
+                  min={"08:00"} max={"23:00"} 
+                  value={req.constraints?.latestEnd ?? ""}
+                  onChange={(e) => setReq((p) => ({ ...p,
+                    constraints: { ...(p.constraints ?? {}), latestEnd: e.target.value || undefined }
+                  }))}
+                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
               </label>
             </div>
 
-            <select
-              value={presetIndex === null ? "" : presetIndex}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === "") {
-                  setPresetIndex(null);
-                  setReq(emptyRequest());
-                } else {
-                  const idx = Number(val);
-                  setPresetIndex(idx);
-                  loadSample(idx);
-                }
-              }}
-              style={{ marginRight: 10, padding: 10 }}
-            >
-              <option value="">
-                Presets
-              </option>
-              {PRESETS.map((p, i) => (
-                <option key={i} value={i}>
-                  {p.label}
+            <div style={{marginTop: 10}}>
+              <select
+                value={presetIndex === null ? "" : presetIndex}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "") {
+                    setPresetIndex(null);
+                    setReq(emptyRequest());
+                  } else {
+                    const idx = Number(val);
+                    setPresetIndex(idx);
+                    loadSample(idx);
+                  }
+                }}
+                style={{ marginRight: 10, padding: 10 }}
+              >
+                <option value="">
+                  Presets
                 </option>
-              ))}
-            </select>
+                {PRESETS.map((p, i) => (
+                  <option key={i} value={i}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
 
-            <button onClick={runSolve}>
-              Generate
-            </button>
+              <button onClick={runSolve}>
+                Generate
+              </button>
 
-            {error && 
-              (<div style={{marginTop: 10, padding: 10, background: "#fff3f3", border: "1 px solid #f1b0b0", borderRadius: 10}}> 
-                <strong> Error:</strong> {error} 
-              </div>)}
-
+              {error && 
+                (<div style={{marginTop: 10, padding: 10, background: "#fff3f3", border: "1 px solid #f1b0b0", borderRadius: 10}}> 
+                  <strong> Error:</strong> {error} 
+                </div>)}
+            </div>
           </div>
 
 
@@ -220,7 +271,7 @@ export default function App() {
             {req.courses.length === 0 && <div> No courses yet. Use the Course Builder above.</div>}
 
             {req.courses.map((course, index) => (
-              <div key={index} style={{border: "1px solid black", borderRadius: 10, padding: 10, display:"flex", alignItems: "center"}}>
+              <div key={index} style={{border: "1px solid gray", borderRadius: 10, padding: 10, display:"flex", alignItems: "center"}}>
                 <div>
                   <div style={{fontWeight: 900}}>
                     {course.code}
@@ -244,27 +295,58 @@ export default function App() {
 
           </div>
 
+          <details style={{ marginTop: 12 }}>
+            <summary style={{ cursor: "pointer" }}>Debug: request JSON</summary>
+            <pre style={{ background: "#fafafa", padding: 12, borderRadius: 10, overflowX: "auto" }}>
+              {JSON.stringify(req, null, 2)}
+            </pre>
+          </details>
+
         </div>
         {/* Right Panel */}
         <div style={{width: "75%", border: "1px solid black", borderRadius: 10, padding: 10, marginLeft: 20}}>
           
           <div style={{display: "flex", justifyContent: "space-between"}}>
             <div style={{fontWeight: 900}}>Results</div>
-            <div>{response ? `${response.schedules.length} schedule(s)`: "No results yet"}</div>
+            <div>{response && response.schedules ? `${response.schedules.length} schedule(s)`: "No results yet"}</div>
           </div>
 
           {/* schedule picker */}
-          <div style={{display: "flex"}}>
+          <div style={{display: "flex", marginTop: 10, gap: 10, overflowX: "auto", flexWrap: "nowrap"}}>
             {schedules.length>0 ? schedules.map((s, i) => (
-              <button key={i} onClick={() => setSelected(i)}>
-                <div>#{i+1}</div>
-                <div>Score: {s.score}</div>
-                <div>
-                  {s.stats.earliestStart}-{s.stats.latestEnd} * gaps {s.stats.totalGapMinutes}m * days {s.stats.daysWithClasses}
+              <button 
+              key={i} 
+              onClick={() => setSelected(i)}
+              style = {{
+                flex: "0 0 240px",
+                textAlign: "left",
+                marginBottom: 12,
+                padding: 10,
+                borderRadius: 10,
+                border: i === selected ? "2px solid #444" : "1px solid #ddd",
+                background: i === selected ? "#f2f2f2" : "white"
+              }}
+              >
+                <div style={{fontWeight: 900}}>#{i+1}</div>
+                <div style={{ fontSize: 12, color: "#555" }}>Score: {s.score}</div>
+                <div style={{ fontSize: 12, color: "#555" }}>
+                  {format12h(toMinutes(s.stats.earliestStart))}-{format12h(toMinutes(s.stats.latestEnd))} • gaps {s.stats.totalGapMinutes/60}h • days {s.stats.daysWithClasses}
                 </div>
               </button>
             )): [0, 1, 2].map((i) => (
-              <button key={i} disabled>
+          <button
+            key={i}
+            disabled
+            style={{
+              flex: "0 0 240px",
+              textAlign: "left",
+              padding: 10,
+              borderRadius: 10,
+              border: "1px dashed #ccc",
+              color: "#888",
+              cursor: "default"
+            }}
+          >
                 <div>#{i+1}</div>
                 <div>Generate to fill</div>
               </button>
@@ -275,7 +357,7 @@ export default function App() {
           <div>
             {schedules.length>0 && schedules[selected] ? (
               <div>
-                <strong>Selected</strong> #{selected+1} * Score {schedules[selected].score}
+                <strong>Selected:</strong> #{selected+1} • Score {schedules[selected].score}
               </div>
             ) : (
               <div>
@@ -284,7 +366,6 @@ export default function App() {
             )}
             <WeekGrid schedule = {schedules.length>0 && schedules[selected] ? schedules[selected] : emptySchedule} />
           </div>
-
         </div>
       </div>
     </div>
