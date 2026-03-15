@@ -75,7 +75,7 @@ public class CourseSchedulerController {
                                 LocalTime.parse(meeting.getEndTime())));
                         }
                     }
-                    sections.add(new Section(section.getCourseCode(), section.getId(), meetings));
+                    sections.add(new Section(course.getCode(), section.getId(), meetings));
                 }
             }
             courses.add(new Course(course.getCode(), sections));
