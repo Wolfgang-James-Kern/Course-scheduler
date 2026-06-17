@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CourseIn, Day } from "../types";
+import type { Day, LegacyCourseIn as CourseIn } from "../types";
 import { format12h, toMinutes } from "./WeekGrid";
 
 type Props = {

@@ -1,6 +1,10 @@
 import { useState } from "react";
 import CourseBuilder from "./components/CourseBuilder";
-import type {CourseIn, SolveRequest, SolveResponse} from "./types";
+import type {
+  LegacyCourseIn as CourseIn,
+  LegacySolveRequest as SolveRequest,
+  LegacySolveResponse as SolveResponse,
+} from "./types";
 import WeekGrid, { format12h, toMinutes } from "./components/WeekGrid";
 import { solveSchedules } from "./api";
 import {PRESETS} from "./data/examples";

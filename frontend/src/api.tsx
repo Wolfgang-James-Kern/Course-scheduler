@@ -1,4 +1,7 @@
-import type { SolveRequest, SolveResponse } from "./types";
+import type {
+  LegacySolveRequest as SolveRequest,
+  LegacySolveResponse as SolveResponse,
+} from "./types";
 
 export async function solveSchedules(request: SolveRequest): Promise<SolveResponse> {
     const response = await fetch("/api/solve", {

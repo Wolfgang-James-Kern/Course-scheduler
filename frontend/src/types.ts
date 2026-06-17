@@ -2,7 +2,7 @@ export type Day = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY";
 
 export type MeetingIn = {
   day: Day;
-  startTime: string;// "HH:MM"
+  startTime: string;
   endTime: string;
 };
 
@@ -11,48 +11,178 @@ export type SectionIn = {
   meetings: MeetingIn[];
 };
 
-export type CourseIn = {
-    code: string;
-    sections: SectionIn[];
+export type ComponentType = "LEC" | "TUT" | "LAB";
+export type EnrollmentRequirement = "REQUIRED" | "OPTIONAL";
+export type AttendanceRequirement = "MANDATORY" | "NON_MANDATORY";
+export type MeetingFrequency = "WEEKLY" | "OCCASIONAL";
+
+export type CourseComponentIn = {
+  type: ComponentType;
+  enrollmentRequirement: EnrollmentRequirement;
+  attendanceRequirement: AttendanceRequirement;
+  meetingFrequency?: MeetingFrequency;
+  included: boolean;
+  sections: SectionIn[];
 };
 
-export type ConstraintsIn = {
-    earliestStart?: string;
-    latestEnd?: string;
-    maxGapMinutes?: number;
+export type SectionPairIn = {
+  firstSectionId: string;
+  secondSectionId: string;
 };
+
+export type ComponentCompatibilityIn = {
+  firstComponent: ComponentType;
+  secondComponent: ComponentType;
+  allowedPairs: SectionPairIn[];
+};
+
+export type CourseIn = {
+  code: string;
+  components: CourseComponentIn[];
+  compatibilities: ComponentCompatibilityIn[];
+};
+
+export type RuleType =
+  | "EARLIEST_START"
+  | "LATEST_END"
+  | "MAXIMUM_GAP"
+  | "MAXIMUM_MEETINGS_PER_DAY"
+  | "MAXIMUM_CONTINUOUS_BLOCK"
+  | "MINIMUM_DAY_LENGTH"
+  | "MAXIMUM_DAILY_SPAN"
+  | "AVOID_SINGLE_MEETING_DAYS"
+  | "BLOCKED_TIME"
+  | "DAYS_OFF"
+  | "MAXIMUM_CAMPUS_DAYS"
+  | "MAXIMUM_WEEKLY_GAP"
+  | "BALANCE_WORKLOAD"
+  | "CLUSTER_CAMPUS_DAYS"
+  | "OCCASIONAL_MEETINGS_AT_DAY_EDGES";
+
+export type RuleMode = "HARD" | "PREFERENCE";
+
+type RuleConfigurationBase = {
+  mode: RuleMode;
+  importance: number;
+};
+
+export type RuleConfiguration =
+  | RuleConfigurationBase & {
+    type: "EARLIEST_START" | "LATEST_END";
+    time: string;
+  }
+  | RuleConfigurationBase & {
+    type:
+      | "MAXIMUM_GAP"
+      | "MAXIMUM_CONTINUOUS_BLOCK"
+      | "MINIMUM_DAY_LENGTH"
+      | "MAXIMUM_DAILY_SPAN"
+      | "MAXIMUM_WEEKLY_GAP"
+      | "BALANCE_WORKLOAD";
+    minutes: number;
+  }
+  | RuleConfigurationBase & {
+    type: "MAXIMUM_MEETINGS_PER_DAY" | "MAXIMUM_CAMPUS_DAYS";
+    count: number;
+  }
+  | RuleConfigurationBase & {
+    type: "DAYS_OFF";
+    days: Day[];
+  }
+  | RuleConfigurationBase & {
+    type: "BLOCKED_TIME";
+    day: Day;
+    startTime: string;
+    endTime: string;
+  }
+  | RuleConfigurationBase & {
+    type: "AVOID_SINGLE_MEETING_DAYS" | "CLUSTER_CAMPUS_DAYS" | "OCCASIONAL_MEETINGS_AT_DAY_EDGES";
+  };
 
 export type SolveRequest = {
-    topN: number;
-    constraints: ConstraintsIn;
-    courses: CourseIn[];
+  topN: number;
+  rules: RuleConfiguration[];
+  courses: CourseIn[];
 };
 
 export type MeetingOut = {
-  day: string;//e.g. "MONDAY"
-  startTime: string;// "HH:MM"
+  day: Day;
+  startTime: string;
   endTime: string;
 };
 
 export type SectionOut = {
   courseCode: string;
+  componentType: ComponentType;
+  attendanceRequirement: AttendanceRequirement;
+  meetingFrequency: MeetingFrequency;
   id: string;
   meetings: MeetingOut[];
 };
 
 export type StatsOut = {
-    earliestStart: string;
-    latestEnd: string;
-    totalGapMinutes: number;
-    daysWithClasses: number;
+  earliestStart: string | null;
+  latestEnd: string | null;
+  totalGapMinutes: number;
+  daysWithClasses: number;
+};
+
+export type RuleEvaluation = {
+  type: RuleType;
+  mode: RuleMode;
+  satisfied: boolean;
+  violation: number;
+  penalty: number;
+  explanation: string;
 };
 
 export type ScheduleOut = {
-    sections: SectionOut[];
-    stats: StatsOut;
-    score: number;
+  sections: SectionOut[];
+  stats: StatsOut;
+  score: number;
+  ruleEvaluations: RuleEvaluation[];
 };
 
 export type SolveResponse = {
-    schedules: ScheduleOut[];
+  schedules: ScheduleOut[];
+};
+
+export type LegacyCourseIn = {
+  code: string;
+  sections: SectionIn[];
+};
+
+export type LegacyConstraintsIn = {
+  earliestStart?: string;
+  latestEnd?: string;
+  maxGapMinutes?: number;
+};
+
+export type LegacySolveRequest = {
+  topN: number;
+  constraints: LegacyConstraintsIn;
+  courses: LegacyCourseIn[];
+};
+
+export type LegacySectionOut = {
+  courseCode: string;
+  id: string;
+  meetings: MeetingOut[];
+};
+
+export type LegacyStatsOut = {
+  earliestStart: string;
+  latestEnd: string;
+  totalGapMinutes: number;
+  daysWithClasses: number;
+};
+
+export type LegacyScheduleOut = {
+  sections: LegacySectionOut[];
+  stats: LegacyStatsOut;
+  score: number;
+};
+
+export type LegacySolveResponse = {
+  schedules: LegacyScheduleOut[];
 };

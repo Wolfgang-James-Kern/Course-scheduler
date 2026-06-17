@@ -1,4 +1,4 @@
-import type { ScheduleOut } from '../types';
+import type { LegacyScheduleOut as ScheduleOut } from '../types';
 
 const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 

@@ -1,4 +1,4 @@
-import type {SolveRequest} from "../types";
+import type { LegacySolveRequest as SolveRequest } from "../types";
 
 export type Preset = {
     label: string;
