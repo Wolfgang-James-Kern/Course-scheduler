@@ -1,0 +1,79 @@
+.courseList {
+  display: grid;
+  gap: 14px;
+}
+
+.courseCard {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-raised);
+}
+
+.courseCard > header {
+  display: grid;
+  gap: 3px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-primary-mist);
+}
+
+.courseCard h3 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1rem;
+}
+
+.sectionList {
+  display: grid;
+  padding: 4px 18px;
+}
+
+.section {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.section:last-child {
+  border-bottom: 0;
+}
+
+.section > strong {
+  color: var(--color-ink);
+  font-size: 0.76rem;
+}
+
+.meetings {
+  display: grid;
+  gap: 7px;
+}
+
+.meetings > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-muted);
+  font-size: 0.74rem;
+}
+
+.meetings time {
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 460px) {
+  .section {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .meetings > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
