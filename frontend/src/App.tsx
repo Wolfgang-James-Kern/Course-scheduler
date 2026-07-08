@@ -6,7 +6,7 @@ import type {
   LegacySolveResponse as SolveResponse,
 } from "./types";
 import WeekGrid, { format12h, toMinutes } from "./components/WeekGrid";
-import { solveSchedules } from "./api";
+import { solveSchedules } from "./api.tsx";
 import {PRESETS} from "./data/examples";
 
 function emptyDraft(): CourseIn {
