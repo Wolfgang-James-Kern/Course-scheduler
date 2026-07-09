@@ -7,7 +7,7 @@ import type {
 } from "./types";
 import WeekGrid, { format12h, toMinutes } from "./components/WeekGrid";
 import { solveSchedules } from "./api.tsx";
-import {PRESETS} from "./data/examples";
+import {PRESETS} from "./data/legacyExamples";
 
 function emptyDraft(): CourseIn {
     return {
