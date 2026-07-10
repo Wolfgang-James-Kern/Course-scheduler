@@ -5,7 +5,7 @@ import type {
   LegacySolveRequest as SolveRequest,
   LegacySolveResponse as SolveResponse,
 } from "./types";
-import WeekGrid, { format12h, toMinutes } from "./components/WeekGrid";
+import WeekGrid, { format12h, toMinutes } from "./components/LegacyWeekGrid";
 import { solveSchedules } from "./api.tsx";
 import {PRESETS} from "./data/legacyExamples";
 
