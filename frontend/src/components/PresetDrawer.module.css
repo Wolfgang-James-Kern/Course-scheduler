@@ -1,0 +1,151 @@
+.panel,
+.saveForm,
+.presetSection,
+.presetList {
+  display: grid;
+  gap: 16px;
+}
+
+.panel {
+  gap: 22px;
+}
+
+.builtInPresets,
+.saveForm {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.saveForm h3,
+.saveForm p,
+.heading h3,
+.emptyState {
+  margin: 0;
+}
+
+.saveForm h3,
+.heading h3 {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+}
+
+.saveForm p {
+  margin-top: 5px;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.saveForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.saveForm label span {
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.saveForm input {
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.saveForm > button {
+  min-height: 41px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.saveForm > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.heading span {
+  display: grid;
+  min-width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+  font-size: 0.68rem;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.emptyState {
+  padding: 22px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted-soft);
+  font-size: 0.77rem;
+  text-align: center;
+}
+
+.presetList article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+
+.presetList article > div:first-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.presetList strong {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presetList small {
+  color: var(--color-muted-soft);
+  font-size: 0.67rem;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.actions button {
+  padding: 7px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary-soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.actions .deleteButton {
+  color: var(--color-danger);
+}
