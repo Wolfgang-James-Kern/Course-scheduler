@@ -1,0 +1,280 @@
+.viewport {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+.dayPager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dayPager strong {
+  color: var(--color-ink);
+  font-size: 0.88rem;
+  letter-spacing: -0.01em;
+}
+
+.dayPager button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-primary);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.dayPager button:disabled {
+  color: var(--color-muted-faint);
+  opacity: 0.55;
+}
+
+.week {
+  display: grid;
+  min-width: 656px;
+  grid-template-columns: 62px repeat(5, minmax(108px, 1fr));
+  grid-template-rows: 51px var(--grid-height);
+}
+
+.weekSingleDay {
+  min-width: 0;
+  grid-template-columns: 51px minmax(0, 1fr);
+}
+
+.headerCorner,
+.dayHeader {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(250, 252, 249, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+.headerCorner {
+  display: grid;
+  left: 0;
+  z-index: 5;
+  place-items: center;
+  border-right: 1px solid var(--color-border-soft);
+  color: var(--color-muted-soft);
+  font-size: 0.58rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--color-border-soft);
+}
+
+.dayHeader span {
+  display: none;
+}
+
+.dayHeader strong {
+  color: var(--color-ink);
+  font-size: 0.72rem;
+  letter-spacing: 0.025em;
+}
+
+.timeRail {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  height: var(--grid-height);
+  border-right: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.timeLabel {
+  height: var(--row-height);
+  box-sizing: border-box;
+  padding: 5px 6px 0 0;
+  border-top: 1px solid var(--color-border-soft);
+  color: var(--color-muted-soft);
+  font-size: 0.57rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.dayColumn {
+  position: relative;
+  height: var(--grid-height);
+  border-right: 1px solid var(--color-border-soft);
+  background-color: var(--color-surface-raised);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--row-height) - 1px),
+    var(--color-border-soft) calc(var(--row-height) - 1px),
+    var(--color-border-soft) var(--row-height)
+  );
+}
+
+.dayColumnAlt {
+  background-color: #f8faf8;
+}
+
+.courseBlock {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  min-height: 18px;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 6px;
+  overflow: hidden;
+  border: 1px solid rgba(41, 75, 59, 0.18);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  line-height: 1.18;
+  box-shadow: 0 2px 7px rgba(41, 63, 52, 0.08);
+}
+
+.courseBlock:hover,
+.courseBlock:focus-visible {
+  z-index: 20;
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--color-primary-soft),
+    0 4px 14px rgba(41, 63, 52, 0.16);
+}
+
+.courseBlock strong {
+  overflow: hidden;
+  font-size: 0.64rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseBlock span,
+.courseBlock small {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compactBlock {
+  gap: 1px;
+  padding: 3px 5px;
+}
+
+.compactBlock strong {
+  font-size: 0.59rem;
+}
+
+.compactBlock small {
+  font-size: 0.5rem;
+}
+
+.blockBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.optionalBadge,
+.occasionalBadge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 0.49rem;
+  font-style: normal;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.optionalBadge {
+  border: 1px solid rgba(138, 74, 63, 0.35);
+  background: rgba(255, 245, 243, 0.92);
+  color: var(--color-danger);
+}
+
+.occasionalBadge {
+  border: 1px solid rgba(36, 93, 72, 0.35);
+  background: rgba(234, 242, 237, 0.95);
+  color: var(--color-primary);
+}
+
+.nonMandatoryBlock {
+  border-style: dashed;
+  border-width: 1.5px;
+  border-color: rgba(138, 74, 63, 0.45);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 4px,
+    rgba(138, 74, 63, 0.06) 4px,
+    rgba(138, 74, 63, 0.06) 8px
+  );
+  box-shadow: none;
+}
+
+.nonMandatoryBlock:hover,
+.nonMandatoryBlock:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary-soft);
+}
+
+.occasionalBlock {
+  border-width: 2px;
+  border-style: dotted;
+  border-color: rgba(36, 93, 72, 0.55);
+}
+
+@media (max-width: 900px) {
+  .week:not(.weekSingleDay) {
+    min-width: 576px;
+    grid-template-columns: 51px repeat(5, minmax(96px, 1fr));
+  }
+
+  .week:not(.weekSingleDay) .dayHeader strong {
+    display: none;
+  }
+
+  .week:not(.weekSingleDay) .dayHeader span {
+    display: block;
+    color: var(--color-ink);
+    font-size: 0.68rem;
+    font-weight: var(--font-weight-extrabold);
+  }
+}
+
+@media (max-width: 760px) {
+  .viewport {
+    overflow: hidden;
+  }
+
+  .weekSingleDay .dayHeader strong {
+    display: none;
+  }
+
+  .weekSingleDay .dayHeader span {
+    display: block;
+    color: var(--color-ink);
+    font-size: 0.68rem;
+    font-weight: var(--font-weight-extrabold);
+  }
+}
