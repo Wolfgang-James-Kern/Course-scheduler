@@ -1,377 +1,495 @@
-import { useState } from "react";
-import CourseBuilder from "./components/CourseBuilder";
-import type {
-  LegacyCourseIn as CourseIn,
-  LegacySolveRequest as SolveRequest,
-  LegacySolveResponse as SolveResponse,
-} from "./types";
-import WeekGrid, { format12h, toMinutes } from "./components/LegacyWeekGrid";
-import { solveSchedules } from "./api.tsx";
-import {PRESETS} from "./data/legacyExamples";
+import { useMemo, useReducer, useState } from "react";
+import { otherSemester, SEMESTERS, semesterLabel, type AcademicYearWorkspace } from "./academicYear.ts";
+import CourseDrawer from "./components/CourseDrawer";
+import Drawer from "./components/Drawer";
+import PresetDrawer from "./components/PresetDrawer";
+import RuleDrawer from "./components/RuleDrawer";
+import ScheduleDetailsPanel from "./components/ScheduleDetailsPanel";
+import WeekGrid from "./components/WeekGrid";
+import { PRESETS } from "./data/examples";
+import { useScheduleGeneration } from "./hooks/useScheduleGeneration.ts";
+import { useWorkspacePersistence } from "./hooks/useWorkspacePersistence.ts";
+import { loadCustomPresets, saveCustomPresets, type CustomPreset } from "./presetStorage";
+import { defaultAcademicYearWorkspace } from "./requestDefaults";
+import { ruleName } from "./ruleCatalog.ts";
+import type { ScheduleOut } from "./types";
+import { formatTime } from "./utils/time";
+import {
+  courseSaveConflict,
+  createWorkspaceState,
+  workspaceReducer,
+  type WorkspaceState,
+} from "./workspaceReducer";
+import { loadWorkspace, migrateAcademicYearSettings } from "./workspaceStorage";
+import styles from "./App.module.css";
 
-function emptyDraft(): CourseIn {
-    return {
-        code: "",
-        sections: []
-    };
+const EMPTY_SCHEDULE: ScheduleOut = {
+  sections: [],
+  stats: { earliestStart: null, latestEnd: null, totalGapMinutes: 0, daysWithClasses: 0 },
+  score: 0,
+  ruleEvaluations: [],
+};
+
+function ScheduleIcon() {
+  return (
+    <span className={styles.navIcon} aria-hidden="true">
+      <svg viewBox="0 0 16 16">
+        <rect x="2" y="3" width="12" height="11" rx="1.5" />
+        <path d="M2 6.5h12M5.5 2v2.5M10.5 2v2.5" />
+      </svg>
+    </span>
+  );
 }
 
-function emptyRequest(): SolveRequest {
-    return {
-        topN: 1,
-        constraints: { earliestStart: "", latestEnd: "", maxGapMinutes: 0 },
-        courses: []
-    };
+function CoursesIcon() {
+  return (
+    <span className={styles.navIcon} aria-hidden="true">
+      <svg viewBox="0 0 16 16">
+        <path d="M3 4.5h10M3 8h10M3 11.5h7" />
+      </svg>
+    </span>
+  );
 }
 
-function validateCourse(course: CourseIn): string | null {
-  if(!course.code.trim()) return "Course code is required.";
-  if(!course.sections || course.sections.length === 0) return "At least one section is required.";
-  for(const section of course.sections) {
-    if(!section.id.trim()) return `Section id is required for course ${course.code}.`;
-    if(!section.meetings || section.meetings.length === 0) return `Section ${course.code} ${section.id} needs at least one meeting.`;
-    for(const meeting of section.meetings) {
-      if(!isValidTime(meeting.startTime) || !isValidTime(meeting.endTime)) return `Bad time format in ${course.code} ${section.id}. Use HH:MM.`;
-      if(meeting.endTime <= meeting.startTime) return `End time must be after start time in ${course.code} ${section.id}.`;
-    }
-  }
-  return null;
+function RulesIcon() {
+  return (
+    <span className={styles.navIcon} aria-hidden="true">
+      <svg viewBox="0 0 16 16">
+        <path d="M8 2.5 13.5 8 8 13.5 2.5 8Z" />
+      </svg>
+    </span>
+  );
 }
 
-function validateRequest(req: SolveRequest): string | null {
-  if(req.courses.length <= 0) return "Must have at least one course"
-  if (!req.topN || req.topN < 1) return "Top N must be at least 1.";
-  const constraints = req.constraints;
-  if (constraints?.earliestStart) {
-    if (!isValidTime(constraints.earliestStart)) return "Earliest start must be a valid time (HH:MM).";
-    if (constraints.earliestStart < "08:00" || constraints.earliestStart > "23:00") return "Earliest start must be between 08:00 and 23:00.";
-  } else {
-    return "Please enter a valid value for Earliest"
-  }
-  if (constraints?.latestEnd) {
-    if (!isValidTime(constraints.latestEnd)) return "Latest end must be a valid time (HH:MM).";
-    if (constraints.latestEnd < "08:00" || constraints.latestEnd > "23:00") return "Latest end must be between 08:00 and 23:00.";
-  } else {
-    return "Please enter a valid value for Latest"
-  }
-  if (constraints?.earliestStart && constraints?.latestEnd) {
-    if (constraints.latestEnd <= constraints.earliestStart) return "Latest end must be after earliest start.";
-  }
-  if (constraints?.maxGapMinutes !== undefined && constraints.maxGapMinutes < 0) return "Max gap minutes must be non-negative.";
-  return null;
-}
-
-function isValidTime(time: string): boolean {
-  return /^\d{2}:\d{2}$/.test(time);
+function initialState(): WorkspaceState {
+  return createWorkspaceState(loadWorkspace());
 }
 
 export default function App() {
-  const [draft, setDraft] = useState<CourseIn>( () => {
-    const saved = localStorage.getItem("draft");
-    return saved ? JSON.parse(saved) : emptyDraft();
-  });
+  const [state, dispatch] = useReducer(workspaceReducer, undefined, initialState);
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>(loadCustomPresets);
+  const { activeSemester, topN, rules, semesters } = state;
+  const semesterOneCourses = semesters.SEMESTER_1.courses;
+  const semesterTwoCourses = semesters.SEMESTER_2.courses;
+  const workspace = useMemo<AcademicYearWorkspace>(() => ({
+    activeSemester,
+    topN,
+    rules,
+    semesters: {
+      SEMESTER_1: { courses: semesterOneCourses },
+      SEMESTER_2: { courses: semesterTwoCourses },
+    },
+  }), [activeSemester, topN, rules, semesterOneCourses, semesterTwoCourses]);
+  const persistenceStatus = useWorkspacePersistence(workspace);
+  const { generateSemester, generateBothSemesters } = useScheduleGeneration(workspace, state, dispatch);
+  const activeWorkspace = state.semesters[state.activeSemester];
+  const activeCourses = activeWorkspace.courses;
+  const schedules = activeWorkspace.response?.schedules ?? [];
+  const selectedSchedule = schedules[activeWorkspace.selectedSchedule] ?? EMPTY_SCHEDULE;
+  const ruleCount = state.rules.length;
+  const hasGenerated = activeWorkspace.status === "complete" || schedules.length > 0;
+  const isLoading = activeWorkspace.status === "loading";
+  const showEmptyCta = !isLoading && (activeCourses.length === 0 || !hasGenerated);
+  const scheduleNavActive = state.drawer === null || state.drawer === "schedule-details";
+  const coursesNavActive = state.drawer === "courses";
+  const rulesNavActive = state.drawer === "rules";
+  const saveStatusLabel = persistenceStatus === "saved"
+    ? "Saved on this device"
+    : "Could not save on this device";
 
-  const [req, setReq] = useState<SolveRequest>( () => {
-    const saved = localStorage.getItem("request");
-    return saved ? JSON.parse(saved) : emptyRequest();
-  });
-
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-
-  const [error, setError] = useState<string>("");
-  const [response, setResponse] = useState<SolveResponse | null>(null);
-  const [selected, setSelected] = useState<number>(0);
-  const [presetIndex, setPresetIndex] = useState<number | null>(null);
-
-  const emptySchedule = {
-    sections: [],
-    stats: {earliestStart: "", latestEnd: "", totalGapMinutes: 0, daysWithClasses: 0},
-    score: 0
-  }
-
-  const schedules = response?.schedules ?? [];
-
-  function loadSample(index: number) {
-    setReq(PRESETS[index].request);
-    setDraft(emptyDraft());
-    setEditingIndex(null);
-    setError("");
-    setPresetIndex(index);
-  }
-
-  function clearDraft() {
-    setDraft(emptyDraft());
-    setEditingIndex(null);
-  }
-
-  function saveCourse() {
-    setError("");
-    const validate = validateCourse(draft)
-    if(validate) {
-      setError(validate);
+  function startFresh() {
+    if (!window.confirm("Clear both semesters, shared rule changes, and all generated schedules?")) {
       return;
     }
-  
-    const normalized: CourseIn = {
-      ...draft,
-      code: draft.code.trim(),
-      sections: draft.sections.map((s) => ({...s, id: s.id.trim(),
-        meetings: s.meetings.map((m) => ({...m, startTime: m.startTime.trim(), endTime: m.endTime.trim()}))
-      }))
+    const workspace = defaultAcademicYearWorkspace();
+    workspace.rules = [];
+    dispatch({ type: "RESET_WORKSPACE", workspace });
+  }
+
+  function loadPreset(nextWorkspace: AcademicYearWorkspace) {
+    dispatch({ type: "LOAD_WORKSPACE", workspace: migrateAcademicYearSettings(structuredClone(nextWorkspace)) });
+    dispatch({ type: "CLOSE_DRAWER" });
+  }
+
+  function saveCustomPreset(label: string): boolean {
+    const existing = customPresets.find((preset) => preset.label.toLowerCase() === label.toLowerCase());
+    if (existing && !window.confirm(`Replace the saved preset “${existing.label}”?`)) {
+      return false;
+    }
+    const preset: CustomPreset = {
+      id: existing?.id ?? crypto.randomUUID(),
+      label,
+      workspace: structuredClone(workspace),
     };
-
-    setReq((prev) => {
-      const courses = [...prev.courses];
-      if (editingIndex === null) {
-        // add to TOP
-        return { ...prev, courses: [normalized, ...courses] };
-      } else {
-        courses[editingIndex] = normalized;
-        return { ...prev, courses };
-      }
-    });
-
-    clearDraft();
+    const nextPresets = existing
+      ? customPresets.map((candidate) => candidate.id === existing.id ? preset : candidate)
+      : [...customPresets, preset];
+    if (!saveCustomPresets(nextPresets)) {
+      dispatch({ type: "SET_SEMESTER_ERROR", semester: state.activeSemester, message: "Unable to save the preset on this device." });
+      return false;
+    }
+    setCustomPresets(nextPresets);
+    return true;
   }
 
-  function editCourse(index: number) {
-    setError("");
-    setEditingIndex(index);
-    setDraft(req.courses[index]);
-  }
-
-  function removeCourse(index: number) {
-    setReq((prev) => ({ ...prev, courses: prev.courses.filter((_, i) => i !== index) }));
-    if (editingIndex === index) clearDraft();
-  }
-
-  async function runSolve() {
-    setError("");
-    const validate = validateRequest(req);
-    if (validate) {
-      setError(validate);
+  function deleteCustomPreset(preset: CustomPreset) {
+    if (!window.confirm(`Delete the preset “${preset.label}”?`)) {
       return;
     }
-    try{
-      const data = await solveSchedules(req);
-      setResponse(data)
-    }catch (e: any) {
-      setError(e?.message ?? "Unknown error");
+    const nextPresets = customPresets.filter((candidate) => candidate.id !== preset.id);
+    if (!saveCustomPresets(nextPresets)) {
+      dispatch({ type: "SET_SEMESTER_ERROR", semester: state.activeSemester, message: "Unable to delete the preset from this device." });
+      return;
     }
+    setCustomPresets(nextPresets);
   }
 
   return (
-    <div style = {{width: "100vw", height: "100vh", padding: 20, boxSizing: "border-box"}}>
-      <h1 style={{margin: 0}}>Course Scheduler</h1>
-      <div>
-        Build courses in the staging area, add them to the list, then generate schedules
-      </div>
-
-      {/* Responsive */}
-      <div style = {{width: "100%", display: "flex"}}>
-        {/* Left Panel */}
-        <div style={{width: "25%", height: "100%"}}>
-
-          {/* Constraints + Actions */}
-          <div style = {{border: "1px solid black", borderRadius: 10, padding: 10}}>
-            <div style = {{fontWeight: 800}}> Generate Settings</div>
-
-            <div style = {{display: "grid", gridTemplateColumns: "1fr 1fr"}}>
-              <label>
-                <div> Top N</div>
-                <input type="number" 
-                  min={1} 
-                  value={req.topN}
-                  onChange={ (e) => setReq((p)=> ({ ...p, topN: Number(e.target.value)}))}
-                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
-              </label>
-
-              <label>
-                <div> Max Gap</div>
-                <input type="number" 
-                  min={0} 
-                  value={req.constraints?.maxGapMinutes ?? ""}
-                  onChange={ (e) => setReq((p)=> ({ ...p, 
-                    constraints: {...(p.constraints ?? {}), maxGapMinutes: e.target.value === "" ? undefined : Number(e.target.value)}
-                  }))}
-                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
-              </label>
-
-              <label>
-                <div> Earliest</div>
-                <input type="time" 
-                  min={"08:00"} max={"23:00"} 
-                  value={req.constraints?.earliestStart ?? ""}
-                  onChange={(e) => setReq((p) => ({ ...p,
-                    constraints: { ...(p.constraints ?? {}), earliestStart: e.target.value || undefined }
-                  }))}
-                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
-              </label>
-
-              <label>
-                <div> Latest</div>
-                <input type="time" 
-                  min={"08:00"} max={"23:00"} 
-                  value={req.constraints?.latestEnd ?? ""}
-                  onChange={(e) => setReq((p) => ({ ...p,
-                    constraints: { ...(p.constraints ?? {}), latestEnd: e.target.value || undefined }
-                  }))}
-                  style= {{width: "95%", boxSizing: "border-box", padding: 10}}/>
-              </label>
-            </div>
-
-            <div style={{marginTop: 10}}>
-              <select
-                value={presetIndex === null ? "" : presetIndex}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "") {
-                    setPresetIndex(null);
-                    setReq(emptyRequest());
-                  } else {
-                    const idx = Number(val);
-                    setPresetIndex(idx);
-                    loadSample(idx);
-                  }
-                }}
-                style={{ marginRight: 10, padding: 10 }}
-              >
-                <option value="">
-                  Presets
-                </option>
-                {PRESETS.map((p, i) => (
-                  <option key={i} value={i}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-
-              <button onClick={runSolve}>
-                Generate
-              </button>
-
-              {error && 
-                (<div style={{marginTop: 10, padding: 10, background: "#fff3f3", border: "1 px solid #f1b0b0", borderRadius: 10}}> 
-                  <strong> Error:</strong> {error} 
-                </div>)}
-            </div>
-          </div>
-
-
-          {/* Staging Area */}
-          <CourseBuilder 
-          value={draft} 
-          onChange={setDraft}
-          onClear={clearDraft}
-          onSubmit={saveCourse}
-          submitLabel = {editingIndex === null ? "Add Course" : "Save Changes"}/>
-
-          {/* Course list */}
-          <div style={{border: "1px solid black", borderRadius: 10, padding: 10, marginTop: 20}}>
-            <div style={{fontWeight: 800}}>
-              Added Courses <span style={{fontWeight: 600 }}>({req.courses.length})</span>
-            </div>
-
-            {req.courses.length === 0 && <div> No courses yet. Use the Course Builder above.</div>}
-
-            {req.courses.map((course, index) => (
-              <div key={index} style={{border: "1px solid gray", borderRadius: 10, padding: 10, display:"flex", alignItems: "center"}}>
-                <div>
-                  <div style={{fontWeight: 900}}>
-                    {course.code}
-                  </div>
-                  <div>
-                    {course.sections.length} section(s)
-                  </div>
-                </div>
-
-                <div style={{marginLeft: "auto"}}>
-                  <button onClick={()=> editCourse(index)}>
-                    Edit
-                  </button>
-                  <button onClick={()=> removeCourse(index)}>
-                    Remove
-                  </button>
-                </div>
-                
-              </div>
-            ))}
-
-          </div>
-
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ cursor: "pointer" }}>Debug: request JSON</summary>
-            <pre style={{ background: "#fafafa", padding: 12, borderRadius: 10, overflowX: "auto" }}>
-              {JSON.stringify(req, null, 2)}
-            </pre>
-          </details>
-
-        </div>
-        {/* Right Panel */}
-        <div style={{width: "75%", border: "1px solid black", borderRadius: 10, padding: 10, marginLeft: 20}}>
-          
-          <div style={{display: "flex", justifyContent: "space-between"}}>
-            <div style={{fontWeight: 900}}>Results</div>
-            <div>{response && response.schedules ? `${response.schedules.length} schedule(s)`: "No results yet"}</div>
-          </div>
-
-          {/* schedule picker */}
-          <div style={{display: "flex", marginTop: 10, gap: 10, overflowX: "auto", flexWrap: "nowrap"}}>
-            {schedules.length>0 ? schedules.map((s, i) => (
-              <button 
-              key={i} 
-              onClick={() => setSelected(i)}
-              style = {{
-                flex: "0 0 240px",
-                textAlign: "left",
-                marginBottom: 12,
-                padding: 10,
-                borderRadius: 10,
-                border: i === selected ? "2px solid #444" : "1px solid #ddd",
-                background: i === selected ? "#f2f2f2" : "white"
-              }}
-              >
-                <div style={{fontWeight: 900}}>#{i+1}</div>
-                <div style={{ fontSize: 12, color: "#555" }}>Score: {s.score}</div>
-                <div style={{ fontSize: 12, color: "#555" }}>
-                  {format12h(toMinutes(s.stats.earliestStart))}-{format12h(toMinutes(s.stats.latestEnd))} • gaps {s.stats.totalGapMinutes/60}h • days {s.stats.daysWithClasses}
-                </div>
-              </button>
-            )): [0, 1, 2].map((i) => (
-          <button
-            key={i}
-            disabled
-            style={{
-              flex: "0 0 240px",
-              textAlign: "left",
-              padding: 10,
-              borderRadius: 10,
-              border: "1px dashed #ccc",
-              color: "#888",
-              cursor: "default"
-            }}
-          >
-                <div>#{i+1}</div>
-                <div>Generate to fill</div>
-              </button>
-            ))}
-          </div>
-
-          {/* grid preview */}
+    <div className={styles.appShell}>
+      <aside className={styles.sidebar}>
+        <div className={styles.brand}>
+          <span className={styles.brandMark}>CS</span>
           <div>
-            {schedules.length>0 && schedules[selected] ? (
-              <div>
-                <strong>Selected:</strong> #{selected+1} • Score {schedules[selected].score}
-              </div>
-            ) : (
-              <div>
-                Generate schedules to populate the grid
-              </div>
-            )}
-            <WeekGrid schedule = {schedules.length>0 && schedules[selected] ? schedules[selected] : emptySchedule} />
+            <strong>Course Scheduler</strong>
           </div>
         </div>
-      </div>
+
+        <nav className={styles.workspaceNav} aria-label="Scheduler workspace">
+          <button
+            className={scheduleNavActive ? styles.activeNav : undefined}
+            aria-current={scheduleNavActive ? "page" : undefined}
+            onClick={() => dispatch({ type: "CLOSE_DRAWER" })}
+          >
+            <ScheduleIcon />
+            Schedule
+          </button>
+          <button
+            className={coursesNavActive ? styles.activeNav : undefined}
+            aria-current={coursesNavActive ? "page" : undefined}
+            onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "courses" })}
+          >
+            <CoursesIcon />
+            Courses
+            <small>{activeCourses.length}</small>
+          </button>
+          <button
+            className={rulesNavActive ? styles.activeNav : undefined}
+            aria-current={rulesNavActive ? "page" : undefined}
+            onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "rules" })}
+          >
+            <RulesIcon />
+            Rules
+            <small>{ruleCount}</small>
+          </button>
+        </nav>
+
+        <div className={styles.courseSummary}>
+          <div className={styles.sidebarHeading}>
+            <span>Your courses</span>
+          </div>
+          {activeCourses.length === 0 ? (
+            <button className={styles.addCoursePrompt} onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "courses" })}>
+              <strong>+ Add your first course</strong>
+              <span>Include each available section</span>
+            </button>
+          ) : (
+            <div className={styles.sidebarCourses}>
+              {activeCourses.slice(0, 7).map((course, index) => (
+                <button
+                  type="button"
+                  key={course.code}
+                  aria-label={`Edit ${course.code}`}
+                  onClick={() => dispatch({ type: "OPEN_COURSE_EDITOR", index })}
+                >
+                  <span>{course.code}</span>
+                  <small>
+                    {course.components.map((component) => component.type).join(" / ")} · {course.components.reduce((total, component) => total + component.sections.length, 0)} sections
+                  </small>
+                </button>
+              ))}
+              {activeCourses.length > 7 && <small>+ {activeCourses.length - 7} more</small>}
+            </div>
+          )}
+        </div>
+
+        <p className={styles.savedStatus} role={persistenceStatus === "failed" ? "alert" : "status"}>
+          {persistenceStatus === "saved"
+            ? "Changes are saved on this device."
+            : "Changes could not be saved on this device."}
+        </p>
+
+        <div className={styles.mobileChrome}>
+          <button
+            type="button"
+            className={styles.mobileCourseChip}
+            onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "courses" })}
+          >
+            {activeCourses.length} courses
+          </button>
+          <p className={styles.mobileSaveStatus} role={persistenceStatus === "failed" ? "alert" : "status"}>
+            {saveStatusLabel}
+          </p>
+        </div>
+      </aside>
+
+      <main className={styles.main}>
+        <header className={styles.topbar}>
+          <div className={styles.workspaceHeading}>
+            <h1>Plan weeks that fit</h1>
+            <div className={styles.semesterSwitcher} aria-label="Active semester">
+              {SEMESTERS.map((semester) => (
+                <button
+                  className={semester === state.activeSemester ? styles.activeSemester : ""}
+                  key={semester}
+                  aria-pressed={semester === state.activeSemester}
+                  onClick={() => dispatch({ type: "SWITCH_SEMESTER", semester })}
+                >
+                  {semesterLabel(semester)}
+                  <small>{state.semesters[semester].courses.length}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={styles.topbarActions}>
+            <button className={styles.presetsButton} onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "presets" })}>
+              Presets
+            </button>
+            <button className={styles.resetButton} onClick={startFresh}>Start fresh</button>
+            <button
+              className={styles.generateBothButton}
+              disabled={SEMESTERS.some((semester) => state.semesters[semester].status === "loading")}
+              onClick={generateBothSemesters}
+            >
+              Generate both
+            </button>
+            <button
+              className={styles.generateButton}
+              disabled={activeWorkspace.status === "loading"}
+              onClick={() => generateSemester(state.activeSemester)}
+            >
+              {activeWorkspace.status === "loading" ? "Generating…" : `Generate ${semesterLabel(state.activeSemester)}`}
+            </button>
+          </div>
+        </header>
+
+        {activeWorkspace.error && <div className={styles.errorBanner} role="alert">{activeWorkspace.error}</div>}
+        {activeWorkspace.status === "complete" && schedules.length === 0 && (
+          <div className={styles.infoBanner} role="status">
+            No schedule satisfies the current required rules. Adjust a requirement or add more sections.
+          </div>
+        )}
+
+        <section className={styles.resultHeader}>
+          <div>
+            <span className={styles.sectionLabel}>Generated schedules</span>
+            <strong>
+              {isLoading
+                ? "Generating options…"
+                : schedules.length > 0
+                  ? `${schedules.length} options`
+                  : showEmptyCta
+                    ? "No schedules yet"
+                    : "Ready when you are"}
+            </strong>
+          </div>
+          <label className={styles.resultCount}>
+            Return
+            <select value={state.topN} onChange={(event) => dispatch({ type: "SET_RESULT_COUNT", count: Number(event.target.value) })}>
+              {[3, 5, 10, 15].map((count) => <option key={count}>{count}</option>)}
+            </select>
+          </label>
+        </section>
+
+        <div className={styles.resultStrip} aria-label="Generated schedule options" aria-busy={isLoading}>
+          {isLoading ? (
+            [1, 2, 3].map((option) => (
+              <div className={styles.resultSkeleton} key={option} aria-hidden="true">
+                <span>Option</span>
+                <strong>Calculating</strong>
+                <small>Comparing campus days and gaps</small>
+              </div>
+            ))
+          ) : schedules.length > 0 ? (
+            schedules.map((schedule, index) => (
+              <button
+                className={index === activeWorkspace.selectedSchedule ? styles.selectedResult : ""}
+                key={index}
+                aria-selected={index === activeWorkspace.selectedSchedule}
+                onClick={() => dispatch({ type: "SELECT_SCHEDULE", index })}
+              >
+                <span>Option {index + 1}</span>
+                <strong>{schedule.score} pts</strong>
+                <small>{schedule.stats.daysWithClasses} campus days · {Math.round(schedule.stats.totalGapMinutes / 6) / 10}h gaps</small>
+              </button>
+            ))
+          ) : showEmptyCta ? (
+            [1, 2, 3].map((option) => (
+              <div className={styles.resultPlaceholder} key={option} aria-hidden="true">
+                <span>Option {option}</span>
+                <strong>—</strong>
+                <small>No schedule yet</small>
+              </div>
+            ))
+          ) : (
+            [1, 2, 3].map((option) => (
+              <div className={styles.resultPlaceholder} key={option} aria-hidden="true">
+                <span>Option {option}</span>
+                <strong>—</strong>
+                <small>Waiting for results</small>
+              </div>
+            ))
+          )}
+        </div>
+
+        <section className={styles.schedulePanel}>
+          <div className={styles.scheduleToolbar}>
+            <div>
+              <span className={styles.sectionLabel}>Weekly view</span>
+              <strong>
+                {isLoading
+                  ? "Building preview…"
+                  : schedules.length
+                    ? `Option ${activeWorkspace.selectedSchedule + 1}`
+                    : "Schedule preview"}
+              </strong>
+            </div>
+            <div className={styles.scheduleToolbarActions}>
+              <div className={styles.scheduleStats}>
+                <span><small>First class</small>{isLoading || showEmptyCta ? "—" : formatTime(selectedSchedule.stats.earliestStart)}</span>
+                <span><small>Last class</small>{isLoading || showEmptyCta ? "—" : formatTime(selectedSchedule.stats.latestEnd)}</span>
+                <span><small>Total gaps</small>{isLoading || showEmptyCta ? "—" : `${Math.round(selectedSchedule.stats.totalGapMinutes / 6) / 10} hr`}</span>
+              </div>
+              {schedules.length > 0 && (
+                <button
+                  className={styles.detailsButton}
+                  onClick={() => dispatch({ type: "OPEN_DRAWER", drawer: "schedule-details" })}
+                >
+                  Course details
+                </button>
+              )}
+            </div>
+          </div>
+          {isLoading ? (
+            <div className={styles.loadingPanel} role="status" aria-live="polite">
+              Generating schedule options…
+            </div>
+          ) : showEmptyCta ? (
+            <div className={styles.emptyPanel}>
+              <strong>{activeCourses.length === 0 ? "Your week is empty" : "Ready to generate"}</strong>
+              <p>
+                {activeCourses.length === 0
+                  ? "Add the courses you want to take, then generate ranked schedule options that fit your rules."
+                  : "Generate schedules to compare campus days, gaps, and how well each option matches your preferences."}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeCourses.length === 0) {
+                    dispatch({ type: "OPEN_DRAWER", drawer: "courses" });
+                    return;
+                  }
+                  generateSemester(state.activeSemester);
+                }}
+              >
+                {activeCourses.length === 0 ? "Add courses" : `Generate ${semesterLabel(state.activeSemester)}`}
+              </button>
+            </div>
+          ) : schedules.length === 0 ? (
+            <div className={styles.ghostGrid} aria-hidden="true" />
+          ) : (
+            <WeekGrid schedule={selectedSchedule} />
+          )}
+        </section>
+
+        {schedules.length > 0 && (
+          <section className={styles.scoreBreakdown}>
+            <div>
+              <span className={styles.sectionLabel}>Why this ranks here</span>
+              <h2>Rule breakdown</h2>
+              <p>Lower preference penalties produce a better-ranked schedule.</p>
+            </div>
+            <div className={styles.evaluationList}>
+              {selectedSchedule.ruleEvaluations.length === 0 ? (
+                <div className={styles.noEvaluations}>No rules were applied to this schedule.</div>
+              ) : selectedSchedule.ruleEvaluations.map((evaluation, index) => (
+                <article key={`${evaluation.type}-${index}`}>
+                  <span
+                    className={evaluation.satisfied ? styles.passIndicator : styles.penaltyIndicator}
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <strong>{ruleName(evaluation.type)}</strong>
+                    <small title={evaluation.explanation} className={styles.evaluationExplanation}>
+                      {evaluation.explanation}
+                    </small>
+                  </div>
+                  <b>
+                    {evaluation.mode === "HARD"
+                      ? (evaluation.satisfied ? "Passed" : "Failed")
+                      : (evaluation.satisfied ? "Passed" : `+${evaluation.penalty} Penalty`)}
+                  </b>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {state.drawer === "courses" && (
+        <Drawer title={`${semesterLabel(state.activeSemester)} courses`} subtitle="Manage the sections the scheduler can choose." onClose={() => dispatch({ type: "CLOSE_DRAWER" })}>
+          <CourseDrawer
+            key={`${state.activeSemester}-${state.courseEditorIndex ?? "list"}`}
+            semester={state.activeSemester}
+            courses={activeCourses}
+            otherSemesterCourses={state.semesters[otherSemester(state.activeSemester)].courses}
+            initialEditingIndex={state.courseEditorIndex}
+            onSave={(course, index, targetSemester) => {
+              const conflict = courseSaveConflict(state, course, index, targetSemester);
+              if (conflict) {
+                dispatch({ type: "SET_SEMESTER_ERROR", semester: state.activeSemester, message: conflict });
+                return false;
+              }
+              dispatch({ type: "SAVE_COURSE", course, index, targetSemester });
+              return true;
+            }}
+            onRemove={(index) => dispatch({ type: "REMOVE_COURSE", index })}
+            onMove={(index, targetSemester) => dispatch({ type: "MOVE_COURSE", index, targetSemester })}
+            onSetSemesterCourses={(semester, courses) => dispatch({ type: "SET_SEMESTER_COURSES", semester, courses })}
+          />
+        </Drawer>
+      )}
+
+      {state.drawer === "rules" && (
+        <Drawer title="Schedule rules" subtitle="Choose from the built-in catalog and decide what is required." onClose={() => dispatch({ type: "CLOSE_DRAWER" })}>
+          <RuleDrawer
+            rules={state.rules}
+            onChange={(rules) => dispatch({ type: "SET_RULES", rules })}
+          />
+        </Drawer>
+      )}
+
+      {state.drawer === "presets" && (
+        <Drawer title="Presets" subtitle="Load, save, and manage complete scheduling configurations." onClose={() => dispatch({ type: "CLOSE_DRAWER" })}>
+          <PresetDrawer
+            builtInPresets={PRESETS}
+            currentWorkspace={workspace}
+            presets={customPresets}
+            onSave={saveCustomPreset}
+            onLoad={loadPreset}
+            onDelete={deleteCustomPreset}
+          />
+        </Drawer>
+      )}
+
+      {state.drawer === "schedule-details" && (
+        <Drawer
+          title={`${semesterLabel(state.activeSemester)} · Option ${activeWorkspace.selectedSchedule + 1}`}
+          subtitle="The sections and meeting times selected for this schedule."
+          onClose={() => dispatch({ type: "CLOSE_DRAWER" })}
+        >
+          <ScheduleDetailsPanel courses={activeCourses} schedule={selectedSchedule} />
+        </Drawer>
+      )}
     </div>
   );
 }
