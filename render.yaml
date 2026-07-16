@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: course-scheduler-api
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: API_ALLOWED_ORIGINS
+        value: https://course-scheduler-web.onrender.com
+      - key: API_RATE_LIMIT_CAPACITY
+        value: "6"
+      - key: API_RATE_LIMIT_REFILL_TOKENS
+        value: "6"
+      - key: API_RATE_LIMIT_REFILL_PERIOD
+        value: "PT1M"
+      - key: API_MAX_CONCURRENT_SOLVES
+        value: "2"
+      - key: API_CLIENT_CACHE_MAXIMUM_SIZE
+        value: "10000"
+      - key: API_CLIENT_CACHE_EXPIRY
+        value: "PT30M"
+
+  - type: web
+    name: course-scheduler-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://course-scheduler-api.onrender.com/api/*
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
