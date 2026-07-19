@@ -2,7 +2,11 @@ import { useState, type FormEvent } from "react";
 import type { AcademicYearWorkspace } from "../academicYear.ts";
 import type { Preset } from "../data/examples.ts";
 import type { CustomPreset } from "../presetStorage.ts";
+import PresetDeveloperTools from "./PresetDeveloperTools.tsx";
 import styles from "./PresetDrawer.module.css";
+
+const PRESET_TOOLS_ENABLED = import.meta.env.DEV
+  && import.meta.env.VITE_ENABLE_PRESET_TOOLS === "true";
 
 type PresetDrawerProps = {
   builtInPresets: Preset[];
@@ -99,6 +103,10 @@ export default function PresetDrawer({
           </div>
         )}
       </section>
+
+      {PRESET_TOOLS_ENABLED && (
+        <PresetDeveloperTools workspace={currentWorkspace} presetName={normalizedLabel} />
+      )}
 
     </div>
   );

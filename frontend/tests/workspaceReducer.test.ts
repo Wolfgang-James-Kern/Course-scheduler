@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { inferSemester } from "../src/academicYear.ts";
 import { PRESETS } from "../src/data/examples.ts";
-import { serializeBuiltInPreset, serializeSemesterPreset } from "../scripts/exportPresetSource.ts";
+import { serializeBuiltInPreset, serializeSemesterPreset } from "../src/presetExport.ts";
 import {
   loadCustomPresets,
   saveCustomPresets,

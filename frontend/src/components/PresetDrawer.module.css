@@ -149,3 +149,61 @@
 .actions .deleteButton {
   color: var(--color-danger);
 }
+
+.developerTools {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.developerTools h3,
+.developerTools p {
+  margin: 0;
+}
+
+.developerTools h3 {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+}
+
+.developerTools > div > p {
+  margin-top: 5px;
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.developerActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.developerActions button {
+  min-height: 39px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-primary-soft);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-extrabold);
+}
+
+.developerActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.copyStatus {
+  color: var(--color-muted-soft);
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .developerActions {
+    grid-template-columns: 1fr;
+  }
+}
